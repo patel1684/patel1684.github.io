@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>Toggle Layers</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.24/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.24/esri/css/esri.css"> 
+    <script src="https://js.arcgis.com/3.24/"></script>
+	
+  <style>
+    html, body, #map {
+      padding:0;
+      margin:0;
+      height:100%;
+    }
+	
+    #BasemapToggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 50;
+    }
+	#HomeButton {
+      position: absolute;
+      top: 150px;
+      left: 20px;
+      z-index: 50;
+    }
+	 #search {
+         display: block;
+         position: absolute;
+         z-index: 2;
+         top: 70px;
+         left: 74px;
+      }
+  </style>  
+
+    <script>
+      var layer, map, visible = [];
+
+      require([
+        "esri/map", "esri/layers/ArcGISDynamicMapServiceLayer",
+        "dojo/dom", "dojo/on", "dojo/query", "dojo/_base/array",
+		"esri/dijit/HomeButton",
+		"esri/dijit/Search",
+		"esri/InfoTemplate",
+		"esri/dijit/BasemapToggle",
+		"esri/layers/FeatureLayer",
+        "dojo/domReady!"
+      ], function( Map, ArcGISDynamicMapServiceLayer,dom, on, query, arrayUtils,HomeButton,Search,InfoTemplate,FeatureLayer, BasemapToggle) {
+        map = new Map("map", {
+          basemap: "topo",  //For full list of pre-defined basemaps, navigate to http://arcg.is/1JVo6Wd
+          center: [-90.45, 37.75], // longitude, latitude
+          zoom: 5
+        });
+		var home = new HomeButton({
+        map: map
+      }, "HomeButton");
+      home.startup();
+	 var search = new Search({
+        enableButtonMode: true, //this enables the search widget to display as a single button
+        enableLabel: false,
+        enableInfoWindow: true,
+        showInfoWindowOnSelect: false,
+        map: map
+      }, "search");
+
+      var sources = search.get("sources");      
+      sources.push({
+        featureLayer: new FeatureLayer("https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/CongressionalDistricts/FeatureServer/0"),
+        searchFields: ["DISTRICTID"],
+        displayField: "DISTRICTID",
+        exactMatch: false,
+        outFields: ["DISTRICTID", "NAME", "PARTY"],
+        name: "Congressional Districts",
+        placeholder: "3708",
+        maxResults: 6,
+        maxSuggestions: 6,
+        //Create an InfoTemplate and include three fields
+        infoTemplate: new InfoTemplate("Congressional District",
+          "District ID: ${DISTRICTID}</br>Name: ${NAME}</br>Party Affiliation: ${PARTY}"
+        ),
+        enableSuggestions: true,
+        minCharacters: 0
+      });
+      sources.push({
+        featureLayer: new FeatureLayer("https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/US_Senators/FeatureServer/0"),
+        searchFields: ["Name"],
+        displayField: "Name",
+        exactMatch: false,
+        name: "Senator",
+        outFields: ["*"],
+        placeholder: "Senator name",
+        maxResults: 6,
+        maxSuggestions: 6,
+        infoTemplate: new InfoTemplate("Senator information",
+          "Name: ${Name}</br>State: ${State}</br>Party Affiliation: ${Party}</br>Phone No: ${Phone_Number}<br><a href=${Web_Page} target=_blank ;'>Website</a>"
+        ),
+        enableSuggestions: true,
+        minCharacters: 0
+      });
+      //Set the sources above to the search widget
+      search.set("sources", sources);
+      search.startup();
+		layer = new ArcGISDynamicMapServiceLayer("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Demographics/ESRI_Census_USA/MapServer");
+        //layer = new ArcGISDynamicMapServiceLayer("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Specialty/ESRI_StatesCitiesRivers_USA/MapServer");
+        // layer = new ArcGISDynamicMapServiceLayer("https://sampleserver6.arcgisonline.com/arcgis/rest/services/WorldTimeZones/MapServer");
+
+        layer.on("load", buildLayerList);
+        map.addLayer(layer);
+
+        function buildLayerList() {
+          var items = arrayUtils.map(layer.layerInfos, function(info, index) {
+            if (info.defaultVisibility) {
+              visible.push(info.id);
+            }
+            return "<input type='checkbox' class='list_item'" + (info.defaultVisibility ? "checked=checked" : "") + "' id='" + info.id + "'' /><label for='" + info.id + "'>" + info.name + "</label>";
+          });
+          var ll = dom.byId("layer_list");
+          ll.innerHTML = items.join(' ');
+          layer.setVisibleLayers(visible);
+          on(ll, "click", updateLayerVisibility);
+        }
+
+        function updateLayerVisibility() {
+          var inputs = query(".list_item");
+          var input;
+          visible = [];
+
+          arrayUtils.forEach(inputs, function(input) {
+            if (input.checked) {
+              visible.push(input.id);
+            }
+          });
+          //if there aren't any layers visible set the array to be -1
+          if (visible.length === 0) {
+            visible.push(-1);
+          }
+          layer.setVisibleLayers(visible);
+        }
+		var toggle = new BasemapToggle({
+        map: map,
+        basemap: "satellite"
+      }, "BasemapToggle");
+      toggle.startup();
+      });
+    </script>
+  </head>
+
+  <body>
+    
+    <br />
+    Layer List : <span id="layer_list"></span>
+	<!-- <button type="button" onclick="Layer List :"<span id="layer_list"></span>Layer List</button> -->
+	<br />
+    <br />
+    <div id="map" style="length:100%";"width:100%; height:100%; border:1px solid #000;"></div>
+	 <div id="HomeButton"></div>
+	 <div id="search"></div>
+	 <div id="BasemapToggle"></div>
+	  
+  </body>
+</html>
